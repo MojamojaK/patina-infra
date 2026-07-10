@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git config *)",
+      "Bash(touch ~/.gitignore_global)",
+      "Read(//Users/kazuki_fujita/**)",
+      "Bash(echo '.DS_Store')"
+    ]
+  }
+}

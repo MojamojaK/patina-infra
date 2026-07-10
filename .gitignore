@@ -1,0 +1,8 @@
+*.tfstate
+*.tfstate.*
+.terraform/
+tfplan
+*.tfvars
+# NOTE: .terraform.lock.hcl is intentionally NOT ignored — commit it.
+# It pins exact provider versions/checksums so `plan` in CI can't drift
+# from what you tested locally, or from a prior CI run.
