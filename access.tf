@@ -9,8 +9,16 @@
 
 locals {
   # Exactly the routes the scraper service token may reach — the seven scraper
-  # API routes plus the admin backup route (LLD-07 §2, §4). Everything else on
-  # the hostname falls through to the owner-only `catalog` app.
+  # API routes plus the admin backup route (LLD-07 §2, §4), plus the new
+  # scraper-only /api/notifications (idempotency reservation for keyword
+  # alerts, LLD-06 §2). Everything else on the hostname falls through to the
+  # owner-only `catalog` app.
+  #
+  # /api/sites and /api/keywords are NOT here: both are also used by the
+  # owner-facing webapp (site cards / onboarding; keyword-watch CRUD), so they
+  # get their own dual-policy (owner OR scraper) applications below instead of
+  # the scraper-only for_each — a scraper-only app on those paths would lock
+  # the webapp itself out.
   scraper_paths = [
     "/api/registry",
     "/api/ingest",
@@ -20,7 +28,11 @@ locals {
     "/api/playbook",
     "/api/snapshot",
     "/api/admin/backup",
+    "/api/notifications",
   ]
+
+  # Routes both the owner (webapp UI) and the scraper service token must reach.
+  dual_paths = ["/api/sites", "/api/keywords"]
 }
 
 # ── Policies (standalone, account-level) ──────────────────────────────────────
@@ -77,6 +89,29 @@ resource "cloudflare_zero_trust_access_application" "scraper" {
 
   policies = [
     { id = cloudflare_zero_trust_access_policy.scraper_service_token.id, precedence = 1 }
+  ]
+}
+
+# Dual-policy apps: reachable by either the owner (email) or the scraper
+# (service token) — both policies are 'allow'-type (one identity, one
+# non_identity), and Access OR's multiple allow policies on one application, so
+# either credential gets through. /api/sites (site cards + onboarding UI, and
+# the escalation ladder's PATCH) and /api/keywords (keyword-watch CRUD UI, and
+# the nightly job's keyword fetch) both need this — a scraper-only app here
+# would lock the webapp itself out.
+resource "cloudflare_zero_trust_access_application" "dual" {
+  for_each = toset(local.dual_paths)
+
+  account_id                = var.cloudflare_account_id
+  name                      = "patina-dual ${each.value}"
+  domain                    = "${var.app_subdomain}.${var.root_domain}${each.value}"
+  type                      = "self_hosted"
+  session_duration          = var.access_session_duration
+  auto_redirect_to_identity = false # scraper hits this path too; no forced human login
+
+  policies = [
+    { id = cloudflare_zero_trust_access_policy.owner.id, precedence = 1 },
+    { id = cloudflare_zero_trust_access_policy.scraper_service_token.id, precedence = 2 },
   ]
 }
 
