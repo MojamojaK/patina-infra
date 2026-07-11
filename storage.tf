@@ -25,6 +25,12 @@ resource "cloudflare_pages_domain" "catalog" {
 resource "cloudflare_d1_database" "catalog" {
   account_id = var.cloudflare_account_id
   name       = "patina-${var.environment}"
+  # Set explicitly (single-user catalog needs no global read replicas). Also
+  # required after import: the provider otherwise sends read_replication=null on
+  # update, which the API rejects (400 "Expected object, received null").
+  read_replication = {
+    mode = "disabled"
+  }
 }
 
 # ─────────────────────────────────────────────────────────────────────────
