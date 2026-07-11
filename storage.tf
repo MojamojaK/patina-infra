@@ -15,7 +15,7 @@ resource "cloudflare_pages_project" "catalog" {
 resource "cloudflare_pages_domain" "catalog" {
   account_id   = var.cloudflare_account_id
   project_name = cloudflare_pages_project.catalog.name
-  domain       = "${var.app_subdomain}.${var.root_domain}"
+  name         = "${var.app_subdomain}.${var.root_domain}" # v5: `name`, not `domain`
 }
 
 # ─────────────────────────────────────────────────────────────────────────
