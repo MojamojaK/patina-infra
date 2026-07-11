@@ -46,7 +46,7 @@ variable "root_domain" {
 variable "app_subdomain" {
   description = "Subdomain the catalog lives on"
   type        = string
-  default     = "catalog"
+  default     = "patina"
 }
 
 variable "owner_email" {
