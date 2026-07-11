@@ -14,17 +14,17 @@ locals {
   # alerts, LLD-06 §2). Everything else on the hostname falls through to the
   # owner-only `catalog` app.
   #
-  # /api/sites and /api/keywords are NOT here: both are also used by the
-  # owner-facing webapp (site cards / onboarding; keyword-watch CRUD), so they
-  # get their own dual-policy (owner OR scraper) applications below instead of
-  # the scraper-only for_each — a scraper-only app on those paths would lock
+  # /api/sites, /api/keywords, and /api/events are NOT here: all are also
+  # used by the owner-facing webapp (site cards / onboarding; keyword-watch
+  # CRUD; the site activity panel reading escalation events), so they get
+  # dual-policy (owner OR scraper) applications below instead of the
+  # scraper-only for_each — a scraper-only app on those paths would lock
   # the webapp itself out.
   scraper_paths = [
     "/api/registry",
     "/api/ingest",
     "/api/shadow",
     "/api/recipes",
-    "/api/events",
     "/api/playbook",
     "/api/snapshot",
     "/api/admin/backup",
@@ -32,7 +32,7 @@ locals {
   ]
 
   # Routes both the owner (webapp UI) and the scraper service token must reach.
-  dual_paths = ["/api/sites", "/api/keywords"]
+  dual_paths = ["/api/sites", "/api/keywords", "/api/events"]
 }
 
 # ── Policies (standalone, account-level) ──────────────────────────────────────
