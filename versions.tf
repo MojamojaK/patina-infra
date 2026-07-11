@@ -7,22 +7,25 @@ terraform {
     }
   }
 
-  # Remote state. Using Cloudflare R2 (S3-compatible) as the backend keeps
-  # everything in one provider ecosystem and costs nothing at this scale.
-  # Create the bucket manually ONCE (chicken-and-egg: Terraform can't create
-  # its own backend), then uncomment. Until then, state is local
-  # (terraform.tfstate) — gitignored, single operator, acceptable for now.
+  # Remote state on Cloudflare R2 (S3-compatible). PARTIAL config: the
+  # account-specific `endpoints.s3` URL is injected at `terraform init` via
+  # `-backend-config` from a generated backend.hcl (see apply.yml), so the
+  # account ID never lands in source. Auth is AWS_ACCESS_KEY_ID /
+  # AWS_SECRET_ACCESS_KEY (an R2 S3 API token), also provided by the workflow.
   #
-  # backend "s3" {
-  #   bucket                      = "patina-tfstate"
-  #   key                         = "prod/terraform.tfstate"
-  #   region                      = "auto"
-  #   endpoints                   = { s3 = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com" }
-  #   skip_credentials_validation = true
-  #   skip_region_validation      = true
-  #   skip_requesting_account_id  = true
-  #   use_path_style              = true
-  # }
+  # Prerequisite (one-time, chicken-and-egg — Terraform can't create its own
+  # backend): create the `patina-tfstate` R2 bucket in the dashboard first.
+  backend "s3" {
+    bucket = "patina-tfstate"
+    key    = "prod/terraform.tfstate"
+    region = "auto"
+    # endpoints = { s3 = "https://<ACCOUNT_ID>.r2.cloudflarestorage.com" }  ← via -backend-config
+    skip_credentials_validation = true
+    skip_region_validation      = true
+    skip_requesting_account_id  = true
+    skip_metadata_api_check     = true
+    use_path_style              = true
+  }
 }
 
 provider "cloudflare" {

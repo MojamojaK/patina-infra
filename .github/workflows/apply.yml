@@ -10,6 +10,20 @@ permissions:
   contents: read
   pull-requests: write # so plan output can comment on the PR
 
+# R2's S3 API rejects the CRC checksums newer AWS SDKs send by default; the
+# conservative "when_required" avoids them for state reads/writes. Harmless if
+# the installed Terraform's SDK doesn't need it. (Non-secret; creds stay
+# per-step.)
+env:
+  AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+  AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+
+# Remote state lives in the `patina-tfstate` R2 bucket (versions.tf, partial
+# backend). Every job writes a backend.hcl with the account-specific R2
+# endpoint (from the CLOUDFLARE_ACCOUNT_ID secret) and inits with it, so the
+# account ID stays out of source. State auth is an R2 S3 API token exposed as
+# AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -18,34 +32,51 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
       - name: terraform init
-        run: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          cat > backend.hcl <<'EOF'
+          endpoints = { s3 = "https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com" }
+          EOF
+          terraform init -no-color -backend-config=backend.hcl
       - name: terraform plan
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TF_VAR_owner_email: ${{ secrets.OWNER_EMAIL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: terraform plan -no-color -out=tfplan
       # Plan output is safe to surface: with sensitive outputs marked
-      # sensitive = true (outputs.tf), Terraform redacts them from plan/apply
-      # text automatically. Nothing secret reaches the PR comment or the log.
+      # sensitive = true (outputs.tf), Terraform redacts them automatically.
 
   apply:
     needs: plan
     if: github.ref == 'refs/heads/mainline' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    # "environment: infra-apply" ties this job to a GitHub Environment with
-    # a required-reviewer protection rule — set that up once in repo
-    # Settings → Environments → New environment → add yourself as a
-    # required reviewer. That is what makes this "approve before it touches
-    # the account" rather than "merges to main auto-apply."
+    # "environment: infra-apply" ties this job to a GitHub Environment with a
+    # required-reviewer protection rule — set that up once in repo Settings →
+    # Environments. That is what makes this "approve before it touches the
+    # account" rather than "merges to mainline auto-apply."
     environment: infra-apply
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
-      - run: terraform init
+      - name: terraform init
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          cat > backend.hcl <<'EOF'
+          endpoints = { s3 = "https://${{ secrets.CLOUDFLARE_ACCOUNT_ID }}.r2.cloudflarestorage.com" }
+          EOF
+          terraform init -no-color -backend-config=backend.hcl
       - name: terraform apply
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           TF_VAR_cloudflare_account_id: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           TF_VAR_owner_email: ${{ secrets.OWNER_EMAIL }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: terraform apply -auto-approve -no-color

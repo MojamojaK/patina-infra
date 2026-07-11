@@ -31,12 +31,20 @@ LLD-07.
 3. **Account ID** — dashboard right sidebar on any domain overview page.
 4. **Cloudflare Zero Trust team name** — Zero Trust dashboard → onboarding
    screen, pick any team name (free tier, ≤50 users). Required before
-   `cloudflare_zero_trust_access_application` can be created.
-5. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
+   `cloudflare_zero_trust_access_application` can be created. **Also enable R2
+   once** (R2 dashboard → opt in) — both are one-time account activations.
+5. **Remote-state R2 bucket** — create an R2 bucket named `patina-tfstate` in
+   the dashboard. Terraform can't create its own backend (chicken-and-egg), so
+   this one bucket is made by hand; everything else is Terraform-managed.
+6. **R2 S3 API token** — R2 dashboard → Manage R2 API Tokens → create an S3
+   token (Object Read & Write) scoped to `patina-tfstate`. Gives an Access Key
+   ID + Secret used only for reading/writing Terraform state.
+7. **GitHub repo secrets** (Settings → Secrets and variables → Actions):
    - `CLOUDFLARE_API_TOKEN` — from step 2
-   - `CLOUDFLARE_ACCOUNT_ID` — from step 3
+   - `CLOUDFLARE_ACCOUNT_ID` — from step 3 (also builds the R2 state endpoint)
    - `OWNER_EMAIL` — the one address allowed through Access
-6. **GitHub Environments** (Settings → Environments):
+   - `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` — from step 6 (state auth)
+8. **GitHub Environments** (Settings → Environments):
    - `infra-plan` — no protection rules
    - `infra-apply` — add yourself as a required reviewer. This is the gate:
      nothing applies to the Cloudflare account without a manual approval
@@ -90,9 +98,18 @@ the API token anywhere but the one GitHub secret field.
   LLD-07 §3) aren't modeled here — not a stable field on `cloudflare_r2_bucket`
   as of 5.22. Apply via `wrangler r2 bucket lifecycle add` or the dashboard
   until it lands in the provider.
-- **Remote state**: currently local `terraform.tfstate` (`.gitignore`
-  already excludes it). The R2 backend is commented out in `versions.tf`
-  because Terraform can't create the bucket it then needs to read from —
-  bootstrap order is: apply once with local state to create the R2
-  bucket, then migrate state (`terraform init -migrate-state`) once the
-  backend block is uncommented.
+- **Remote state** — WIRED: `versions.tf` uses an R2 (S3-compatible) backend
+  as a *partial* config; the account-specific `endpoints.s3` URL is injected at
+  `terraform init` from a generated `backend.hcl` (apply.yml) so the account ID
+  stays out of source. The only manual prerequisite is creating the
+  `patina-tfstate` bucket + an R2 S3 token (prereqs 5–6). CI is now the source
+  of truth for state — no local `terraform.tfstate`.
+- **One-time cleanup before the first apply with remote state**: an earlier
+  apply ran with ephemeral (local, CI-discarded) state and created 6 resources
+  before failing on the not-yet-enabled R2/Access — leaving them untracked. The
+  D1 db `patina-production`, the Pages project `patina-production` + its custom
+  domain, and the 3 DNS records (app CNAME, SPF, DMARC) must be **deleted in the
+  dashboard** so the first remote-state apply can recreate all 12 cleanly (they
+  are brand-new and empty — no data loss). If R2 checksums trip `init` (a known
+  R2 + terraform s3-backend gotcha), set `AWS_REQUEST_CHECKSUM_CALCULATION=when_required`
+  in the init step.
