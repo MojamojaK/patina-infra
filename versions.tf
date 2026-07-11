@@ -58,6 +58,7 @@ variable "access_session_duration" {
 }
 
 variable "environment" {
-  type    = string
-  default = "prod"
+  description = "Names all resources: patina-<env> / patina-store-<env>. MUST match the app's wrangler.toml database_name / bucket_name (currently 'production')."
+  type        = string
+  default     = "production"
 }

@@ -14,9 +14,10 @@ applied at the repo boundary instead of only the workflow-permissions one.
 ## What this repo does
 
 Provisions: DNS records on `mojamojak.work` (app subdomain + email auth
-records), a Pages project, a D1 database, an R2 bucket, and a Cloudflare
-Access application with two policies (owner login, scraper service token).
-Matches HLD v0.7 §13 and LLD-07.
+records), a Pages project (production branch `mainline`), a D1 database, an
+R2 bucket, and Cloudflare Access — an owner-login application plus one
+service-token-only application per scraper route. Matches HLD v0.7 §13 and
+LLD-07.
 
 ## Prerequisites (you do these once, outside Terraform)
 
@@ -46,7 +47,7 @@ Matches HLD v0.7 §13 and LLD-07.
 - Open a PR → `plan` job runs automatically, output visible in the Actions
   log (sensitive outputs are redacted by Terraform itself, since
   `outputs.tf` marks them `sensitive = true`).
-- Merge to `main` → `apply` job queues, waits for your approval in the
+- Merge to `mainline` → `apply` job queues, waits for your approval in the
   `infra-apply` environment, then runs.
 - One-off changes: `workflow_dispatch` from the Actions tab.
 
@@ -85,13 +86,12 @@ the API token anywhere but the one GitHub secret field.
   LLD-07 §3) aren't modeled here — not yet a stable field on
   `cloudflare_r2_bucket` as of 5.21. Apply via `wrangler r2 bucket
   lifecycle add` or the dashboard until it lands in the provider.
-- **Multi-path Access policies**: the five remaining scraper routes
-  (`/api/ingest`, `/api/shadow`, `/api/recipes`, `/api/events`,
-  `/api/playbook`) need the same treatment as `/api/registry` in
-  `access.tf` — either duplicated Application blocks or a single
-  `destinations` list if the provider supports multiple paths per
-  Application by the time you apply this. Check the docs for
-  `destinations` vs. single `domain` before duplicating five more blocks.
+- **Multi-path Access policies** — DONE: `access.tf` now covers all scraper
+  routes (the seven API routes + `/api/admin/backup`) via a `for_each` over a
+  `scraper_paths` list, one service-token-only Application per path. Still worth
+  verifying at `terraform plan` time whether provider 5.21 exposes a
+  `destinations` list on the Application — if so these collapse into one app;
+  the `for_each` is the safe form until that's confirmed.
 - **Remote state**: currently local `terraform.tfstate` (`.gitignore`
   already excludes it). The R2 backend is commented out in `versions.tf`
   because Terraform can't create the bucket it then needs to read from —

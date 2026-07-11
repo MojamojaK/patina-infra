@@ -3,7 +3,7 @@ name: apply
 on:
   pull_request: {}
   push:
-    branches: [main]
+    branches: [mainline]
   workflow_dispatch: {}
 
 permissions:
@@ -31,7 +31,7 @@ jobs:
 
   apply:
     needs: plan
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/mainline' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     # "environment: infra-apply" ties this job to a GitHub Environment with
     # a required-reviewer protection rule — set that up once in repo

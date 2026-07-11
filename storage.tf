@@ -9,7 +9,7 @@
 resource "cloudflare_pages_project" "catalog" {
   account_id        = var.cloudflare_account_id
   name              = "patina-${var.environment}"
-  production_branch = "main"
+  production_branch = "mainline" # the app repo (patina) deploys from mainline, not main
 }
 
 resource "cloudflare_pages_domain" "catalog" {

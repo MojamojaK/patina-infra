@@ -20,31 +20,47 @@ resource "cloudflare_zero_trust_access_application" "catalog" {
   auto_redirect_to_identity = true
 }
 
-# Policy 1: the scraper's six API routes, service-token only.
-# Path scoping happens via a *second* Access Application bound to the same
-# hostname with narrower `path` matching, per Cloudflare's documented
-# pattern for "different rules for different paths on one hostname."
+# The scraper's authenticated routes, service-token only. Cloudflare Access
+# matches one path per Application, so we create one Application per scraper
+# route (for_each over the path list) rather than hand-duplicating blocks. The
+# token can therefore reach EXACTLY these paths — everything else on the
+# hostname falls through to the owner-only `catalog` app (LLD-07 §2). This is
+# the seven scraper routes plus the admin backup route (LLD-07 §4).
+#
+# FUTURE (verify against provider 5.21 at plan time): if the installed provider
+# exposes a `destinations` list on the Application, these collapse into ONE app
+# with a path list. Kept as for_each near-duplicates until that's confirmed,
+# per this repo's "known unknowns" discipline.
+locals {
+  scraper_paths = [
+    "/api/registry",
+    "/api/ingest",
+    "/api/shadow",
+    "/api/recipes",
+    "/api/events",
+    "/api/playbook",
+    "/api/snapshot",
+    "/api/admin/backup",
+  ]
+}
 
-resource "cloudflare_zero_trust_access_application" "catalog_scraper_routes" {
-  account_id = var.cloudflare_account_id
-  name       = "patina-scraper-routes"
-  domain     = "${var.app_subdomain}.${var.root_domain}/api/registry"
-  # Cloudflare Access matches one path per Application; the remaining five
-  # scraper routes need their own Application blocks (or a single Access
-  # "path" wildcard app scoped to /api/registry, /api/ingest, etc., if the
-  # provider's `destinations` block supports a list by the time this is
-  # applied — check `destinations` vs. single `domain` in 5.21 docs).
-  # Left as five near-duplicates below rather than one clever wildcard,
-  # because path-list support here is exactly the kind of thing that
-  # changed recently and is worth verifying against real docs before
-  # collapsing into fewer resources.
-  session_duration = "1h" # short-lived; this is machine-to-machine
+resource "cloudflare_zero_trust_access_application" "scraper" {
+  for_each = toset(local.scraper_paths)
+
+  account_id                = var.cloudflare_account_id
+  name                      = "patina-scraper ${each.value}"
+  domain                    = "${var.app_subdomain}.${var.root_domain}${each.value}"
+  type                      = "self_hosted"
+  session_duration          = "1h"  # short-lived; machine-to-machine
+  auto_redirect_to_identity = false # no human login flow for these routes
 }
 
 resource "cloudflare_zero_trust_access_policy" "scraper_service_token" {
+  for_each = cloudflare_zero_trust_access_application.scraper
+
   account_id     = var.cloudflare_account_id
-  application_id = cloudflare_zero_trust_access_application.catalog_scraper_routes.id
-  name           = "scraper-service-token-only"
+  application_id = each.value.id
+  name           = "scraper-service-token-only ${each.key}"
   decision       = "non_identity" # service tokens bypass identity-based rules entirely
   include = [
     { service_token = { token_id = cloudflare_zero_trust_access_service_token.scraper.id } }
