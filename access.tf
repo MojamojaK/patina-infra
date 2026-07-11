@@ -59,23 +59,21 @@ resource "cloudflare_zero_trust_access_application" "catalog" {
   ]
 }
 
-# Exactly the scraper routes, service-token only. v5's `destinations` list holds
-# all the paths in one Application (the consolidation the earlier per-path
-# duplication anticipated), and a more specific path match takes precedence over
-# the owner app on the same hostname.
+# One Access application per scraper route, service-token only. Folding all
+# paths into a single app via `destinations` hit Cloudflare's per-app
+# destination cap ("too many destinations for one app"), so we go one-path-per-
+# app via for_each — the per-path model the repo originally anticipated. Each
+# references the shared service-token policy; a more specific path match takes
+# precedence over the owner app on the same hostname.
 resource "cloudflare_zero_trust_access_application" "scraper" {
+  for_each = toset(local.scraper_paths)
+
   account_id                = var.cloudflare_account_id
-  name                      = "patina-scraper-routes"
+  name                      = "patina-scraper ${each.value}"
+  domain                    = "${var.app_subdomain}.${var.root_domain}${each.value}"
   type                      = "self_hosted"
   session_duration          = "1h"  # short-lived; machine-to-machine
   auto_redirect_to_identity = false # no human login flow for these routes
-
-  destinations = [
-    for p in local.scraper_paths : {
-      type = "public"
-      uri  = "${var.app_subdomain}.${var.root_domain}${p}"
-    }
-  ]
 
   policies = [
     { id = cloudflare_zero_trust_access_policy.scraper_service_token.id, precedence = 1 }

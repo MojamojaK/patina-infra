@@ -90,10 +90,11 @@ the API token anywhere but the one GitHub secret field.
   in v5 Access policies are standalone account-level resources referenced from
   an application's `policies` list, NOT attached via `application_id` (the v4
   model, which v5 rejects). `access.tf` reflects the v5 model.
-- **Multi-path Access policies** — RESOLVED: v5's `destinations` list holds all
-  scraper paths (the seven API routes + `/api/admin/backup`) in a single
-  service-token-only Application; a more specific path match takes precedence
-  over the owner app on the same hostname.
+- **Multi-path Access** — RESOLVED: one service-token-only Application per
+  scraper route (the seven API routes + `/api/admin/backup`) via `for_each`. A
+  single app with all paths in `destinations` hit Cloudflare's per-app
+  destination cap ("too many destinations for one app"), so per-path it is; a
+  more specific path match takes precedence over the owner app on the hostname.
 - **R2 lifecycle rules** (30-day snapshot expiry, backup retention per
   LLD-07 §3) aren't modeled here — not a stable field on `cloudflare_r2_bucket`
   as of 5.22. Apply via `wrangler r2 bucket lifecycle add` or the dashboard
