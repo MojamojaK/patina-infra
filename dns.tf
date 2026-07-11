@@ -29,17 +29,38 @@ resource "cloudflare_dns_record" "app" {
   comment = "patina web app"
 }
 
-# Email auth for Resend (HLD §13.8 / LLD-07 §5). Values are placeholders —
-# Resend's domain-verification screen gives you the exact records to paste
-# in once you add the sending domain there; replace before applying.
+# Email auth for Resend (HLD §13.8 / LLD-07 §5). Resend sends via AWS SES
+# under the hood, so the SPF/MX records it issues point at amazonses.com and
+# live on a dedicated `send.` subdomain (keeps them from clobbering any MX/SPF
+# already on the root domain). Values below are exactly what Resend's
+# domain-verification screen showed at setup time — not guesses.
+
+resource "cloudflare_dns_record" "resend_mx" {
+  zone_id  = data.cloudflare_zone.root.id
+  name     = "send.${var.root_domain}"
+  type     = "MX"
+  content  = "feedback-smtp.ap-northeast-1.amazonses.com"
+  priority = 10
+  ttl      = 3600
+  comment  = "Resend (AWS SES) bounce/complaint handling"
+}
 
 resource "cloudflare_dns_record" "spf" {
   zone_id = data.cloudflare_zone.root.id
-  name    = var.root_domain
+  name    = "send.${var.root_domain}"
   type    = "TXT"
-  content = "v=spf1 include:_spf.resend.com ~all"
+  content = "v=spf1 include:amazonses.com ~all"
   ttl     = 3600
   comment = "SPF for Resend"
+}
+
+resource "cloudflare_dns_record" "dkim" {
+  zone_id = data.cloudflare_zone.root.id
+  name    = "resend._domainkey.${var.root_domain}"
+  type    = "TXT"
+  content = "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCfBM0gl9mQBGMJxT+3eN5Z2jKLQ9gXVaJsqV4YhW6fSOZEBeACHTboylg/snAHGxHiFzHri0ajo+Ouq7pKgy/7stWR02B8GsIuB/HTzPSZEngbWJXJgep4HSkfPJIRapXFwe7Fmv3J6N4X5621ZwwEE1xCLlvL/HkXTu4lUY68NQIDAQAB"
+  ttl     = 3600
+  comment = "DKIM for Resend"
 }
 
 resource "cloudflare_dns_record" "dmarc" {
@@ -50,8 +71,3 @@ resource "cloudflare_dns_record" "dmarc" {
   ttl     = 3600
   comment = "DMARC policy"
 }
-
-# DKIM CNAME(s): Resend issues these per-domain at verification time
-# (typically two, e.g. resend._domainkey / resend2._domainkey). Add as a
-# resource per record once Resend shows them — placeholder left out here
-# deliberately rather than guessing values that would silently fail.
