@@ -24,6 +24,7 @@ locals {
     "/api/registry",
     "/api/ingest",
     "/api/gallery",
+    "/api/flags",
     "/api/shadow",
     "/api/recipes",
     "/api/playbook",
