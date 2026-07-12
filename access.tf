@@ -23,6 +23,7 @@ locals {
   scraper_paths = [
     "/api/registry",
     "/api/ingest",
+    "/api/gallery",
     "/api/shadow",
     "/api/recipes",
     "/api/playbook",
