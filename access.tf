@@ -25,6 +25,7 @@ locals {
     "/api/ingest",
     "/api/gallery",
     "/api/maintenance",
+    "/api/htmlcache",
     "/api/flags",
     "/api/shadow",
     "/api/recipes",

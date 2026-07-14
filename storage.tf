@@ -53,6 +53,18 @@ resource "cloudflare_d1_database" "catalog" {
 # authenticated /api/media Function; the bucket itself has no public
 # access either way, per HLD §13.7).
 
+# HTML detail-page cache (owner request 2026-07-14): gallery backfills and the
+# detail-rescue pass were re-fetching the same detail pages every run. Two
+# cache layers: local disk on the scraping machine, and this bucket (shared
+# across machines/runs). "Cleared eventually" = the 14-day lifecycle expiry,
+# applied via `wrangler r2 bucket lifecycle` (see the note below — R2
+# lifecycle isn't a stable Terraform resource yet on provider 5.x).
+resource "cloudflare_r2_bucket" "htmlcache" {
+  account_id = var.cloudflare_account_id
+  name       = "patina-htmlcache-${var.environment}"
+  location   = "apac"
+}
+
 resource "cloudflare_r2_bucket" "store" {
   account_id = var.cloudflare_account_id
   name       = "patina-store-${var.environment}"
