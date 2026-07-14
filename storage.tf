@@ -22,6 +22,17 @@ resource "cloudflare_pages_domain" "catalog" {
 # D1 — system of record (HLD §11)
 # ─────────────────────────────────────────────────────────────────────────
 
+# D1 #2 — item gallery images only (2026-07-14): the main database hit the
+# free tier's size cap; galleries (770k rows) are the bulk and have no SQL
+# joins that can't be done app-side, so they live in their own database.
+resource "cloudflare_d1_database" "images" {
+  account_id = var.cloudflare_account_id
+  name       = "patina-images-${var.environment}"
+  read_replication = {
+    mode = "disabled"
+  }
+}
+
 resource "cloudflare_d1_database" "catalog" {
   account_id = var.cloudflare_account_id
   name       = "patina-${var.environment}"

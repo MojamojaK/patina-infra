@@ -22,3 +22,8 @@ output "scraper_service_token_client_secret" {
   sensitive   = true
   description = "Goes into the GHA secret CF_ACCESS_CLIENT_SECRET. Same handling as above."
 }
+
+output "d1_images_database_id" {
+  value       = cloudflare_d1_database.images.id
+  description = "DB_IMAGES binding for the Pages project (wrangler.toml)."
+}
