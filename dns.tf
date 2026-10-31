@@ -23,7 +23,8 @@ resource "cloudflare_dns_record" "app" {
   zone_id = data.cloudflare_zone.root.id
   name    = var.app_subdomain
   type    = "CNAME"
-  content = "${cloudflare_pages_project.catalog.name}.pages.dev"
+  # app_origin (tunnel.tf) switches the origin; Pages stays deployed either way.
+  content = var.app_origin == "tunnel" ? local.tunnel_target : "${cloudflare_pages_project.catalog.name}.pages.dev"
   proxied = true
   ttl     = 1 # "automatic" when proxied
   comment = "patina web app"
