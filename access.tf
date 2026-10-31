@@ -41,15 +41,19 @@ resource "cloudflare_zero_trust_access_policy" "owner" {
   account_id = var.cloudflare_account_id
   name       = "owner-allow"
   decision   = "allow"
+  # Matches what is live (set outside Terraform); kept deliberately (owner,
+  # 2026-10-31) so applies stop proposing to clear it.
+  session_duration = "24h"
   include = [
     { email = { email = var.owner_email } }
   ]
 }
 
 resource "cloudflare_zero_trust_access_policy" "scraper_service_token" {
-  account_id = var.cloudflare_account_id
-  name       = "scraper-service-token-only"
-  decision   = "non_identity" # service tokens bypass identity-based rules entirely
+  account_id       = var.cloudflare_account_id
+  name             = "scraper-service-token-only"
+  decision         = "non_identity" # service tokens bypass identity-based rules entirely
+  session_duration = "24h"          # matches what is live; see the owner policy
   include = [
     { service_token = { token_id = cloudflare_zero_trust_access_service_token.scraper.id } }
   ]
