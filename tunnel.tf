@@ -68,11 +68,11 @@ resource "cloudflare_dns_record" "app_local" {
 # Simpler than the per-path apps on the real hostname; the origin still
 # checks the scraper bearer on every scraper route.
 resource "cloudflare_zero_trust_access_application" "catalog_local" {
-  account_id                = var.cloudflare_account_id
-  name                      = "patina-local"
-  domain                    = local.local_test_host
-  type                      = "self_hosted"
-  session_duration          = var.access_session_duration
+  account_id       = var.cloudflare_account_id
+  name             = "patina-local"
+  domain           = local.local_test_host
+  type             = "self_hosted"
+  session_duration = var.access_session_duration
   # true needs allowed_idps with exactly one IdP (API error on create); the
   # login page just shows the IdP choice instead of redirecting.
   auto_redirect_to_identity = false
