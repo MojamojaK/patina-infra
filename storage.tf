@@ -10,6 +10,13 @@ resource "cloudflare_pages_project" "catalog" {
   account_id        = var.cloudflare_account_id
   name              = "patina-${var.environment}"
   production_branch = "mainline" # the app repo (patina) deploys from mainline, not main
+
+  # Provider 5.x plans a no-op in-place update for this computed field on
+  # every run, and the update then fails with "inconsistent result after
+  # apply" (canonical_deployment), failing the whole apply (2026-10-31).
+  lifecycle {
+    ignore_changes = [build_image_auto_upgrade]
+  }
 }
 
 resource "cloudflare_pages_domain" "catalog" {
