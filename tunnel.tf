@@ -73,7 +73,9 @@ resource "cloudflare_zero_trust_access_application" "catalog_local" {
   domain                    = local.local_test_host
   type                      = "self_hosted"
   session_duration          = var.access_session_duration
-  auto_redirect_to_identity = true
+  # true needs allowed_idps with exactly one IdP (API error on create); the
+  # login page just shows the IdP choice instead of redirecting.
+  auto_redirect_to_identity = false
 
   policies = [
     { id = cloudflare_zero_trust_access_policy.owner.id, precedence = 1 },
