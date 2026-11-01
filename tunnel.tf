@@ -15,7 +15,7 @@
 variable "app_origin" {
   description = "Where the app hostname points: \"pages\" (Cloudflare Pages) or \"tunnel\" (the owner's laptop)"
   type        = string
-  default     = "pages"
+  default     = "tunnel"
   validation {
     condition     = contains(["pages", "tunnel"], var.app_origin)
     error_message = "app_origin must be \"pages\" or \"tunnel\"."
